@@ -35,7 +35,7 @@ def get_3d_coordinates(color_intr,depth_frame,xpix1,ypix1,xpix2,ypix2):
 def show_images(images):
 	for i, img in enumerate(images):
 		cv2.imshow("image_" + str(i), img)
-	cv2.waitKey(0)
+	cv2.waitKey(1)
 	cv2.destroyAllWindows()
 
 def order_points(pts):
@@ -82,7 +82,6 @@ def get_aligned_images():
     color_image = np.asanyarray(color_frame.get_data())  # RGB图
     
     #返回相机内参、深度参数、彩色图、深度图、齐帧中的depth帧
-    print("Return aligned results")
     return intr, depth_intrin, color_image, depth_image, aligned_depth_frame
 
 
@@ -155,6 +154,9 @@ if __name__ == "__main__":
         	x,y = i.ravel()
         	cv2.circle(rgb,(x,y),3,255,-1)
         cv2.imshow("CornersFinder",rgb)
+
+        show_images([rgb])
+
         '''
         c = sorted(cnts, key=cv2.contourArea, reverse=True)[0]
 
