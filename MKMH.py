@@ -3,6 +3,7 @@
 # 坐标转换
 # 测试中心点的xyz坐标
 
+
 import pyrealsense2 as rs
 from scipy.spatial.distance import euclidean
 from imutils import perspective
@@ -11,6 +12,8 @@ import imutils
 import numpy as np
 import cv2
 import json
+import Q_globals as glo
+
 
 
 
@@ -57,7 +60,7 @@ def order_points(pts):
     return rect
 
 def get_aligned_images():
-    print("Get aligned images")
+    #print("Get aligned images")
     frames = pipeline.wait_for_frames()  #等待获取图像帧
     aligned_frames = align.process(frames)  #获取对齐帧
     aligned_depth_frame = aligned_frames.get_depth_frame()  #获取对齐帧中的depth帧
@@ -89,7 +92,9 @@ def get_aligned_images():
 
 
 if __name__ == "__main__":
+    
     #  Init 初始化
+    glo.init()
     pipeline = rs.pipeline()  #定义流程pipeline
     config = rs.config()   #定义配置config
     config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)  #配置depth流
@@ -102,6 +107,8 @@ if __name__ == "__main__":
         intr, depth_intrin, rgb, depth, aligned_depth_frame = get_aligned_images() #获取对齐的图像与相机内参
         gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
         cv2.imshow("Gray",gray)
+        cv2.waitKey(1)
+
         # 高斯模糊，不然canny查不到轮廓
         blur = cv2.GaussianBlur(gray, (9, 9), 0)
         #cv2.imshow("blur", blur)
@@ -110,7 +117,8 @@ if __name__ == "__main__":
 
         #Canny函数为非微分边缘检测算法，具有滤波、增强、检测的多阶段优化算子。
         edged = cv2.Canny(blur, 50, 100)
-
+        cv2.imshow("canny",edged)
+        cv2.waitKey(1)
         #图像膨胀的用途：
         #用途1：Dilation 影像膨脹通常是配合著影像侵蝕 Erosion 使用，先使用侵蝕的方式使影像中的線條變窄，同時也去除雜訊，之後再透過 Dilation 將影像膨脹回來。
         #用途2：用來連接兩個很靠近但分開的物體。
@@ -122,7 +130,8 @@ if __name__ == "__main__":
         #用途2：細化影像，消除毛刺。
         edged = cv2.erode(edged, None, iterations=1) #图像腐蚀
 
-        cv2.imshow("Canny", blur)
+        #cv2.imshow("Canny", blur)
+        #cv2.waitKey(1)
 
         #显示所有的过程图片，测试时，可以选择用此句
         #show_images([blur, edged])
@@ -131,72 +140,78 @@ if __name__ == "__main__":
         # 寻找边缘
         cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
-
+        #print(cnts)
         # Sort contours from left to right as leftmost contour is reference object
         #(cnts, _) = contours.sort_contours(cnts)
 
-        # Remove contours which are not large enough
-        # 做一个阈值滤波，如果尺寸小于某个范围的就排除
-        cnts = [x for x in cnts if cv2.contourArea(x) > 400]
+
+        cnts = [x for x in cnts if cv2.contourArea(x) > 2000]
 
         # Draw contours
         # 画出边缘
-        cv2.drawContours(rgb, cnts, -1, (0,250,0), 2)
 
         #show_images([blur, edged])
                 #print(len(cnts))
 
         # Find corners 
         # 查找各种角
-        corners = cv2.goodFeaturesToTrack(gray,25,0.01,10)
-        corners = np.int0(corners)
-        for i in corners :
-        	x,y = i.ravel()
-        	cv2.circle(rgb,(x,y),3,255,-1)
-        cv2.imshow("CornersFinder",rgb)
+        #corners = cv2.goodFeaturesToTrack(gray,25,0.01,10)
+        #corners = np.int0(corners)
+        #for i in corners :
+        #	x,y = i.ravel()
+        #	cv2.circle(rgb,(x,y),3,255,-1)
+        #cv2.imshow("CornersFinder",rgb)
+    
+        contours2 = sorted(cnts, key=cv2.contourArea, reverse=True)
 
-        show_images([rgb])
 
-        '''
-        c = sorted(cnts, key=cv2.contourArea, reverse=True)[0]
+        if len(contours2) > 1:
+            c = contours2[1]
+            #c = [x for x in contours2 if cv2.contourArea(x) > 400]
+            cv2.drawContours(rgb, c, -1, (0,250,0), 2)
+            cv2.imshow("contours",rgb)
+            cv2.waitKey(1)
+            print(c)
+        
 
         # 画四个边缘点
 
-        rect = order_points(c.reshape(c.shape[0], 2))
+            rect = order_points(c.reshape(c.shape[0], 2))
         #print(rect)
 
 
-        xs = [i[0] for i in rect]
-        ys = [i[1] for i in rect]
-        xs.sort()
-        ys.sort()
-        #内接矩形的坐标为
-        #print(xs,ys)
-        #print(xs[1],xs[2],ys[1],ys[2])
-        print(type(rect[0]))
-        print(rect[0])
-        rgb = cv2.circle(rgb,tuple(rect[0]),radius=6, color=(255,0,255),thickness=2)
-        rgb = cv2.circle(rgb,tuple(rect[1]),radius=6, color=(255,0,255),thickness=2)
-        rgb = cv2.circle(rgb,tuple(rect[2]),radius=6, color=(255,0,255),thickness=2)
-        rgb = cv2.circle(rgb,tuple(rect[3]),radius=6, color=(255,0,255),thickness=2)
+            xs = [i[0] for i in rect]
+            ys = [i[1] for i in rect]
+            xs.sort()
+            ys.sort()
+            #内接矩形的坐标为
+            #print(xs,ys)
+            #print(xs[1],xs[2],ys[1],ys[2])
+            print(type(rect[0]))
+            print(rect[0])
+            rgb = cv2.circle(rgb,tuple(rect[0]),radius=6, color=(255,0,255),thickness=2)
+            rgb = cv2.circle(rgb,tuple(rect[1]),radius=6, color=(255,0,255),thickness=2)
+            rgb = cv2.circle(rgb,tuple(rect[2]),radius=6, color=(255,0,255),thickness=2)
+            rgb = cv2.circle(rgb,tuple(rect[3]),radius=6, color=(255,0,255),thickness=2)
 
 
         # Reference object dimensions
         # Here for reference I have used a 2cm x 2cm square
         # 设置一个参考矩形用作Marker和基础尺寸，算出实际尺寸与像素尺寸比。
         # 左上角放置一个正方形
-        ref_object = cnts[0]
-        box = cv2.minAreaRect(ref_object)
-        box = cv2.boxPoints(box)
-        box = np.array(box, dtype="int")
-        box = perspective.order_points(box)
-        (tl, tr, br, bl) = box
-        dist_in_pixel = euclidean(tl, tr)
-        dist_in_cm = 2
-        pixel_per_cm = dist_in_pixel/dist_in_cm
+        if glo.TYPE_MODE == 1 :
+            ref_object = cnts[0]
+            box = cv2.minAreaRect(ref_object)
+            box = cv2.boxPoints(box)
+            box = np.array(box, dtype="int")
+            box = perspective.order_points(box)
+            (tl, tr, br, bl) = box
+            dist_in_pixel = euclidean(tl, tr)
+            dist_in_cm = 2
+            pixel_per_cm = dist_in_pixel/dist_in_cm
 
 
-
+        pixel_per_cm = 1
         # 画剩下的轮廓
         for cnt in cnts:
         	#print(cnt[0])
@@ -212,7 +227,6 @@ if __name__ == "__main__":
         	rgb = cv2.circle(rgb,topmost,radius=6, color=(255,255,255),thickness=2)
         	rgb = cv2.circle(rgb,bottommost,radius=6, color=(255,255,255),thickness=2)
         	#image = cv2.circle(image,cnt[0],radius=6, color=(255,255,255),thickness=2)
-        	cv2.imshow("circle",rgb)
 
 
         	box = cv2.minAreaRect(cnt)
@@ -232,13 +246,10 @@ if __name__ == "__main__":
         		cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
         	cv2.putText(rgb, "{:.1f}cm".format(ht), (int(mid_pt_verticle[0] + 10), int(mid_pt_verticle[1])), 
         		cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
-
-        show_images([rgb])
-
-'''
+        	cv2.imshow("circle",rgb)
+        cv2.waitKey(1)
 
 '''
-
         # 定义需要得到真实三维信息的像素点（x, y)，本例程以中心点为例
         # 测试精度，以Z轴为主要考量因素。
         x = 320  
