@@ -32,7 +32,7 @@ def get_3d_coordinates(color_intr,depth_frame,xpix1,ypix1,xpix2,ypix2):
 	depth_point1 = rs.rs2_deproject_pixel_to_point(color_intr,[xpix1,ypix1],dist1)
 	depth_point2 = rs.rs2_deproject_pixel_to_point(color_intr,[xpix2,ypix2],dist2)
 
-	return np.squrt(np.power(depth_point1[0]-depth_point2[0],2) +
+	return np.sqrt(np.power(depth_point1[0]-depth_point2[0],2) +
 		np.power(depth_point1[1]-depth_point2[1],2)+
 		np.power(depth_point2[2]-depth_point2[2],2)
 	)

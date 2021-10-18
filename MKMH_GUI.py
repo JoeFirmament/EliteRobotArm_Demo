@@ -84,6 +84,34 @@ def measurement_realsense(window):
         if glo.TYPE_MODE == 0:
             if len(contours2) == 1 :
                 logger.info("Work on 3D CAM Mode ,Get 1 contour")
+                objContour = contours2[0]
+                rect = order_points(objContour.reshape(objContour.shape[0], 2))
+                box = cv2.minAreaRect(objContour)
+                box = cv2.boxPoints(box)
+                box = np.array(box, dtype="int")
+                box = perspective.order_points(box)
+                (tl, tr, br, bl) = box
+                #print(tl)
+                #print(type(tl))
+                width = get_3d_coordinates(intr,aligned_depth_frame,tl[0],tl[1],tr[0],tr[1])*1000
+                length = get_3d_coordinates(intr,aligned_depth_frame,tl[0],tl[1],bl[0],bl[1])*1000
+                width = round(width,2)
+                length = round(length,2)
+                window.write_event_value('-WIDTH-',width) 
+                window.write_event_value('-LENGTH-',length) 
+
+                   
+
+                print(length)
+                if glo.DISPLAY_STATUS == 1:
+                    rgb = cv2.circle(rgb,tuple(rect[0]),radius=6, color=(255,0,255),thickness=2)
+                    rgb = cv2.circle(rgb,tuple(rect[1]),radius=6, color=(255,0,255),thickness=2)
+                    rgb = cv2.circle(rgb,tuple(rect[2]),radius=6, color=(255,0,255),thickness=2)
+                    rgb = cv2.circle(rgb,tuple(rect[3]),radius=6, color=(255,0,255),thickness=2)
+                    frame = cv2.resize(rgb, frameSize)
+                    imgbytes = cv2.imencode(".png", frame)[1].tobytes()
+                    window["cam1gray"].update(data=imgbytes)
+
             else:
                 print("Too much contours ,pls keep view clear")
         if glo.TYPE_MODE == 1:
@@ -91,8 +119,7 @@ def measurement_realsense(window):
                 logger.info("SingleCam Mode")
                 objContour = contours2[0]
                 refContour = contours2[1]
-                cv2.drawContours(rgb, refContour, -1, (255,215,0), 2) # -1 代表绘制所有轮廓 金色
-                cv2.drawContours(rgb, objContour, -1, (189,252,201), 2) # 薄荷色
+
                 rect = order_points(refContour.reshape(refContour.shape[0], 2))
                 box = cv2.minAreaRect(refContour)
                 box = cv2.boxPoints(box)
@@ -100,8 +127,9 @@ def measurement_realsense(window):
                 box = perspective.order_points(box)
                 (tl, tr, br, bl) = box
                 dist_in_pixel = euclidean(tl, tr)
-                dist_in_cm = glo.REFERENCE_SIZE/10 
-                pixel_per_cm = dist_in_pixel/dist_in_cm #获得实尺寸和像素之间的比例关系
+                dist_in_mm = glo.REFERENCE_SIZE 
+                pixel_per_mm = dist_in_pixel/dist_in_mm #获得实尺寸和像素之间的比例关系
+                # 把所有的轮廓全描出来，算一遍
                 for cnt in cnts:
         	        leftmost = tuple(cnt[cnt[:,:,0].argmin()][0])
         	        rightmost = tuple(cnt[cnt[:,:,0].argmax()][0])
@@ -120,8 +148,8 @@ def measurement_realsense(window):
         	        cv2.drawContours(rgb, [box.astype("int")], -1, (0, 0, 255), 2)
         	        mid_pt_horizontal = (tl[0] + int(abs(tr[0] - tl[0])/2), tl[1] + int(abs(tr[1] - tl[1])/2))
         	        mid_pt_verticle = (tr[0] + int(abs(tr[0] - br[0])/2), tr[1] + int(abs(tr[1] - br[1])/2))
-        	        wid = euclidean(tl, tr)/pixel_per_cm
-        	        ht = euclidean(tr, br)/pixel_per_cm
+        	        wid = euclidean(tl, tr)/pixel_per_mm
+        	        ht = euclidean(tr, br)/pixel_per_mm
         	        cv2.putText(rgb, "{:.1f}cm".format(wid), (int(mid_pt_horizontal[0] - 15), int(mid_pt_horizontal[1] - 10)), 
         	        	cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
         	        cv2.putText(rgb, "{:.1f}cm".format(ht), (int(mid_pt_verticle[0] + 10), int(mid_pt_verticle[1])), 
@@ -150,9 +178,9 @@ def measureThreading():
 
 #------Init globals--------
 glo.init()
-start = time.time()
+start = time.time() # 为判断GUI线程是否挂掉
 readSetting()
-local_IP_Address = getIP()
+local_IP_Address = getIP() #只取C类地址，以192.168开头
 #-----Init loger
 logger.add('logs/monitor.log',level='DEBUG',format='{time:YYYY-MM-DD HH:mm:ss} - {level} - {file} - {line} - {message}',rotation="10 MB")
 #-----Hard device init
@@ -164,10 +192,8 @@ profile = pipeline.start(config)  #流程开始
 align_to = rs.stream.color  #与color流对齐
 align = rs.align(align_to)
 
-camera_Width  = 320 #   480 # 640 # 1024 # 1280
-camera_Heigth = 240 # 320 # 480 # 780  # 960
-frameSize = (camera_Width, camera_Heigth)
-#--layout--
+
+### -----layout
 colwebcam1_layout = [[sg.Text("Camera View", size=(60, 1), justification="c")],
                         [sg.Image(filename="", key="cam1")]]
 colwebcam1 = sg.Column(colwebcam1_layout, element_justification='c')
@@ -206,7 +232,7 @@ layout = [
         sg.Radio('SINGLE CAM','work_mode',size=(30,None),key ='-SINGLECAM-'),sg.Radio('3D CAM','work_mode',default='true',size=(30,None),key = '-3DCAM-')],
         [sg.Text('_'*120,size=(120,None),justification='center')],           
         [sg.T("Processing Log",font="Helvetica ")],
-        #  [sg.Output(size=(120,8),key='-OUTPUT-')],
+        #  [sg.Output(size=(120,8),key='-OUTPUT-')],       # 这个控件接管了print
         [sg.Button('LoadSetting'),sg.Button('ResetTimmer'),sg.Button('Run'),sg.Button('ClearOutput'),sg.Button('Exit')]
         ]
 
@@ -240,5 +266,9 @@ while True:
         break      
     if event == '-TIME-':
         window['time'].update(values['-TIME-'])
+    if event == '-WIDTH-':
+        window['width'].update(values['-WIDTH-'])
+    if event == '-LENGTH-':
+        window['length'].update(values['-LENGTH-'])       
 
 window.close()
