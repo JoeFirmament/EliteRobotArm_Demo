@@ -89,9 +89,47 @@ def measurement_realsense(window):
         if glo.TYPE_MODE == 1:
             if len(contours2) > 1:
                 logger.info("SingleCam Mode")
+                objContour = contours2[0]
                 refContour = contours2[1]
-                cv2.drawContours(rgb, refContour, -1, (0,250,0), 2)
+                cv2.drawContours(rgb, refContour, -1, (255,215,0), 2) # -1 代表绘制所有轮廓 金色
+                cv2.drawContours(rgb, objContour, -1, (189,252,201), 2) # 薄荷色
                 rect = order_points(refContour.reshape(refContour.shape[0], 2))
+                box = cv2.minAreaRect(refContour)
+                box = cv2.boxPoints(box)
+                box = np.array(box, dtype="int")
+                box = perspective.order_points(box)
+                (tl, tr, br, bl) = box
+                dist_in_pixel = euclidean(tl, tr)
+                dist_in_cm = glo.REFERENCE_SIZE/10 
+                pixel_per_cm = dist_in_pixel/dist_in_cm #获得实尺寸和像素之间的比例关系
+                for cnt in cnts:
+        	        leftmost = tuple(cnt[cnt[:,:,0].argmin()][0])
+        	        rightmost = tuple(cnt[cnt[:,:,0].argmax()][0])
+        	        topmost = tuple(cnt[cnt[:,:,1].argmin()][0])
+        	        bottommost = tuple(cnt[cnt[:,:,1].argmax()][0])
+        	        rgb = cv2.circle(rgb,leftmost,radius=6, color=(255,255,255),thickness=2)
+        	        rgb = cv2.circle(rgb,rightmost,radius=6, color=(255,255,255),thickness=2)
+        	        rgb = cv2.circle(rgb,topmost,radius=6, color=(255,255,255),thickness=2)
+        	        rgb = cv2.circle(rgb,bottommost,radius=6, color=(255,255,255),thickness=2)
+        	        #image = cv2.circle(image,cnt[0],radius=6, color=(255,255,255),thickness=2)
+        	        box = cv2.minAreaRect(cnt)
+        	        box = cv2.boxPoints(box)
+        	        box = np.array(box, dtype="int")
+        	        box = perspective.order_points(box)
+        	        (tl, tr, br, bl) = box
+        	        cv2.drawContours(rgb, [box.astype("int")], -1, (0, 0, 255), 2)
+        	        mid_pt_horizontal = (tl[0] + int(abs(tr[0] - tl[0])/2), tl[1] + int(abs(tr[1] - tl[1])/2))
+        	        mid_pt_verticle = (tr[0] + int(abs(tr[0] - br[0])/2), tr[1] + int(abs(tr[1] - br[1])/2))
+        	        wid = euclidean(tl, tr)/pixel_per_cm
+        	        ht = euclidean(tr, br)/pixel_per_cm
+        	        cv2.putText(rgb, "{:.1f}cm".format(wid), (int(mid_pt_horizontal[0] - 15), int(mid_pt_horizontal[1] - 10)), 
+        	        	cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
+        	        cv2.putText(rgb, "{:.1f}cm".format(ht), (int(mid_pt_verticle[0] + 10), int(mid_pt_verticle[1])), 
+        		    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
+                    # Draw contours
+                    # 画出边缘
+                cv2.drawContours(rgb, cnts, -1, (0,250,0), 2)
+
                 if glo.DISPLAY_STATUS == 1:
                     rgb = cv2.circle(rgb,tuple(rect[0]),radius=6, color=(255,0,255),thickness=2)
                     rgb = cv2.circle(rgb,tuple(rect[1]),radius=6, color=(255,0,255),thickness=2)
@@ -100,7 +138,7 @@ def measurement_realsense(window):
                     frame = cv2.resize(rgb, frameSize)
                     imgbytes = cv2.imencode(".png", frame)[1].tobytes()
                     window["cam1gray"].update(data=imgbytes)
-            time.sleep(1/50)
+            #time.sleep(1/50)
 
 #--threading
 def measureThreading():
@@ -112,8 +150,6 @@ def measureThreading():
 
 #------Init globals--------
 glo.init()
-
-
 start = time.time()
 readSetting()
 local_IP_Address = getIP()

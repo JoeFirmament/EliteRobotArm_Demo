@@ -1,5 +1,6 @@
 import numpy as np
 import pyrealsense2 as rs
+from scipy.spatial import distance as dist
 
 
 def order_points(pts):
@@ -35,3 +36,8 @@ def get_3d_coordinates(color_intr,depth_frame,xpix1,ypix1,xpix2,ypix2):
 		np.power(depth_point1[1]-depth_point2[1],2)+
 		np.power(depth_point2[2]-depth_point2[2],2)
 	)
+
+def get_distances(tltrX, tltrY, blbrX, blbrY, tlblX, tlblY, trbrX, trbrY):
+    dA = dist.euclidean((tltrX, tltrY), (blbrX, blbrY))
+    dB = dist.euclidean((tlblX, tlblY), (trbrX, trbrY))
+    return dA, dB
