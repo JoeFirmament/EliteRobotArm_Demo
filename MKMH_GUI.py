@@ -33,12 +33,13 @@ def get_aligned_images():
         #######################################################
 
         depth_image = np.asanyarray(aligned_depth_frame.get_data())  #深度图（默认16位）
-        depth_image_8bit = cv2.convertScaleAbs(depth_image, alpha=0.03)  #深度图（8位）
-        depth_image_3d = np.dstack((depth_image_8bit,depth_image_8bit,depth_image_8bit))  #3通道深度图
+        #depth_image_8bit = cv2.convertScaleAbs(depth_image, alpha=0.03)  #深度图（8位）
+        #depth_image_3d = np.dstack((depth_image_8bit,depth_image_8bit,depth_image_8bit))  #3通道深度图
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
         color_image = np.asanyarray(color_frame.get_data())  # RGB图
     
         #返回相机内参、深度参数、彩色图、深度图、齐帧中的depth帧
-        return intr, depth_intrin, color_image, depth_image, aligned_depth_frame
+        return intr, depth_intrin, color_image, depth_image, aligned_depth_frame,depth_colormap
     except Exception as e:
         logger.error("Grap Frame Error")
 
@@ -66,7 +67,7 @@ def measurement_realsense(window):
     while True:
         elaspedTime = time.strftime("%H:%M:%S", time.gmtime(time.time()-start))
         window.write_event_value('-TIME-',elaspedTime)    
-        intr, depth_intrin, rgb, depth, aligned_depth_frame = get_aligned_images() #获取对齐的图像与相机内参
+        intr, depth_intrin, rgb, depth, aligned_depth_frame,depth_color = get_aligned_images() #获取对齐的图像与相机内参
         gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (7, 7), 0)       
         edged = cv2.Canny(blur, 50, 100)        
@@ -104,11 +105,11 @@ def measurement_realsense(window):
 
                 print(length)
                 if glo.DISPLAY_STATUS == 1:
-                    rgb = cv2.circle(rgb,tuple(rect[0]),radius=6, color=(255,0,255),thickness=2)
-                    rgb = cv2.circle(rgb,tuple(rect[1]),radius=6, color=(255,0,255),thickness=2)
-                    rgb = cv2.circle(rgb,tuple(rect[2]),radius=6, color=(255,0,255),thickness=2)
-                    rgb = cv2.circle(rgb,tuple(rect[3]),radius=6, color=(255,0,255),thickness=2)
-                    frame = cv2.resize(rgb, frameSize)
+                    depth_color = cv2.circle(depth_color,tuple(rect[0]),radius=6, color=(255,0,255),thickness=2)
+                    depth_color = cv2.circle(depth_color,tuple(rect[1]),radius=6, color=(255,0,255),thickness=2)
+                    depth_color = cv2.circle(depth_color,tuple(rect[2]),radius=6, color=(255,0,255),thickness=2)
+                    depth_color = cv2.circle(depth_color,tuple(rect[3]),radius=6, color=(255,0,255),thickness=2)
+                    frame = cv2.resize(depth_color, frameSize)
                     imgbytes = cv2.imencode(".png", frame)[1].tobytes()
                     window["cam1gray"].update(data=imgbytes)
 
@@ -150,9 +151,9 @@ def measurement_realsense(window):
         	        mid_pt_verticle = (tr[0] + int(abs(tr[0] - br[0])/2), tr[1] + int(abs(tr[1] - br[1])/2))
         	        wid = euclidean(tl, tr)/pixel_per_mm
         	        ht = euclidean(tr, br)/pixel_per_mm
-        	        cv2.putText(rgb, "{:.1f}cm".format(wid), (int(mid_pt_horizontal[0] - 15), int(mid_pt_horizontal[1] - 10)), 
+        	        cv2.putText(rgb, "{:.1f}mm".format(wid), (int(mid_pt_horizontal[0] - 15), int(mid_pt_horizontal[1] - 10)), 
         	        	cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
-        	        cv2.putText(rgb, "{:.1f}cm".format(ht), (int(mid_pt_verticle[0] + 10), int(mid_pt_verticle[1])), 
+        	        cv2.putText(rgb, "{:.1f}mm".format(ht), (int(mid_pt_verticle[0] + 10), int(mid_pt_verticle[1])), 
         		    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
                     # Draw contours
                     # 画出边缘
@@ -189,8 +190,11 @@ config = rs.config()   #定义配置config
 config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)  #配置depth流
 config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)   #配置color流
 profile = pipeline.start(config)  #流程开始
+
 align_to = rs.stream.color  #与color流对齐
 align = rs.align(align_to)
+
+colorizer = rs.colorizer()
 
 
 ### -----layout
@@ -270,5 +274,5 @@ while True:
         window['width'].update(values['-WIDTH-'])
     if event == '-LENGTH-':
         window['length'].update(values['-LENGTH-'])       
-
+pipeline.stop
 window.close()

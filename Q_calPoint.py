@@ -22,20 +22,24 @@ def order_points(pts):
     return rect
 
 def get_3d_coordinates(color_intr,depth_frame,xpix1,ypix1,xpix2,ypix2):
-	dist1 = depth_frame.get_distance(xpix1,ypix1)
-	dist2 = depth_frame.get_distance(xpix2,ypix2)
+
+    try:
+	    dist1 = depth_frame.get_distance(xpix1,ypix1)
+	    dist2 = depth_frame.get_distance(xpix2,ypix2)
 
     #Given pixel coordinates and depth in an image 
     #with no distortion or inverse distortion coefficients, 
     # compute the corresponding point in 3D space relative to the same camera
     # 计算出空间点
-	depth_point1 = rs.rs2_deproject_pixel_to_point(color_intr,[xpix1,ypix1],dist1)
-	depth_point2 = rs.rs2_deproject_pixel_to_point(color_intr,[xpix2,ypix2],dist2)
+	    depth_point1 = rs.rs2_deproject_pixel_to_point(color_intr,[xpix1,ypix1],dist1)
+	    depth_point2 = rs.rs2_deproject_pixel_to_point(color_intr,[xpix2,ypix2],dist2)
 
-	return np.sqrt(np.power(depth_point1[0]-depth_point2[0],2) +
-		np.power(depth_point1[1]-depth_point2[1],2)+
-		np.power(depth_point2[2]-depth_point2[2],2)
-	)
+	    return np.sqrt(np.power(depth_point1[0]-depth_point2[0],2) +
+		    np.power(depth_point1[1]-depth_point2[1],2)+
+		    np.power(depth_point2[2]-depth_point2[2],2)
+	    )
+    except Exception as e:
+        print("Get 3D coordinates ERROR")
 
 def get_distances(tltrX, tltrY, blbrX, blbrY, tlblX, tlblY, trbrX, trbrY):
     dA = dist.euclidean((tltrX, tltrY), (blbrX, blbrY))
