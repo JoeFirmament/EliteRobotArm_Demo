@@ -35,7 +35,7 @@ def get_aligned_images():
         depth_image = np.asanyarray(aligned_depth_frame.get_data())  #深度图（默认16位）
         #depth_image_8bit = cv2.convertScaleAbs(depth_image, alpha=0.03)  #深度图（8位）
         #depth_image_3d = np.dstack((depth_image_8bit,depth_image_8bit,depth_image_8bit))  #3通道深度图
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET) # 把深度图改为颜色图
         color_image = np.asanyarray(color_frame.get_data())  # RGB图
     
         #返回相机内参、深度参数、彩色图、深度图、齐帧中的depth帧
